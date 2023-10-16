@@ -37,11 +37,6 @@ if [[ -z "$VERSION" ]]; then
 fi
 echo "ℹ︎ VERSION is $VERSION"
 
-if [[ -z "$ASSETS_DIR" ]]; then
-    ASSETS_DIR=".wordpress-org"
-fi
-echo "ℹ︎ ASSETS_DIR is $ASSETS_DIR"
-
 # By default we use root directory to upload on SVN
 # But sometimes we need to upload files from `build` directory
 if [[ -z "$SOURCE_DIR" ]]; then
@@ -50,7 +45,7 @@ else
     echo "ℹ︎ Using custom directory to upload from - $SOURCE_DIR"
 fi
 
-SVN_URL="https://plugins.svn.wordpress.org/${SLUG}/"
+SVN_URL="https://themes.svn.wordpress.org/${SLUG}/"
 SVN_DIR="${HOME}/svn-${SLUG}"
 
 # Checkout just trunk and assets for efficiency
@@ -58,7 +53,6 @@ SVN_DIR="${HOME}/svn-${SLUG}"
 echo "➤ Checking out .org repository..."
 svn checkout --depth immediates "$SVN_URL" "$SVN_DIR"
 cd "$SVN_DIR"
-svn update --set-depth infinity assets
 svn update --set-depth infinity trunk
 
 echo "➤ Copying files..."
@@ -69,13 +63,6 @@ if [[ -e "$GITHUB_WORKSPACE/.distignore" ]]; then
     rsync -rc --exclude-from="$GITHUB_WORKSPACE/.distignore" "$GITHUB_WORKSPACE/$SOURCE_DIR" trunk/ --delete --delete-excluded
 else
     rsync -rc "$GITHUB_WORKSPACE/$SOURCE_DIR" trunk/ --delete --delete-excluded
-fi
-
-# Copy dotorg assets to /assets
-if [[ -d "$GITHUB_WORKSPACE/$ASSETS_DIR/" ]]; then
-    rsync -rc "$GITHUB_WORKSPACE/$ASSETS_DIR/" assets/ --delete
-else
-    echo "ℹ︎ No assets directory found; skipping..."
 fi
 
 # Add everything and commit to SVN
@@ -92,14 +79,9 @@ svn status | grep '^\!' | sed 's/! *//' | xargs -I% svn rm %@ > /dev/null
 echo "➤ Copying tag..."
 svn cp "trunk" "tags/$VERSION"
 
-# Fix screenshots getting force downloaded when clicking them
-# https://developer.wordpress.org/plugins/wordpress-org/plugin-assets/
-svn propset svn:mime-type image/png assets/*.png || true
-svn propset svn:mime-type image/jpeg assets/*.jpg || true
-
 svn status
 
 echo "➤ Committing files..."
 svn commit -m "Update to version $VERSION from GitHub" --no-auth-cache --non-interactive  --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
 
-echo "✓ Plugin deployed!"
+echo "✓ Theme deployed!"
